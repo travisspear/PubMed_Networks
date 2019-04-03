@@ -47,11 +47,6 @@ shinyServer(function(input, output, session) {
   
   graph <- readRDS("alz_graph.rds") # Base data import for Alzheimer's Disease query
   
-  observe({
-    # Show a simple modal
-    shinyalert(title = "You did it!", type = "success")
-  })
-  
   output$graph_Query <- renderText({ # Display the query used for the current graph
     
     text<- if(input$input_QueryText == ""){
