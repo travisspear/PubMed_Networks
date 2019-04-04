@@ -5,6 +5,7 @@ library(shinyWidgets)
 library(visNetwork)
 library(tidyverse)
 library(data.table)
+library(shinyjs)
 
 shinyServer(function(input, output, session) {
   
@@ -14,9 +15,9 @@ shinyServer(function(input, output, session) {
     
   }
   
-  graphData <- function(x){ # Function to get retrieve data from PubMed and convert it into an author network.
+  graphData <- function(x, dateRange){ # Function to get retrieve data from PubMed and convert it into an author network.
     
-    query <- EUtilsSummary(x, retmax = 1500, reldate = 30) # Create Query
+    query <- EUtilsSummary(x, retmax = 1500, reldate = dateRange) # Create Query
     dat <- EUtilsGet(query) # Get data
     
     df <- data.table( # Pull Id and Author from dat
@@ -39,7 +40,10 @@ shinyServer(function(input, output, session) {
       select(-id) %>%
       graph_from_data_frame( # Create a graph from the author dataframe using igraph
         directed = T
-      ) 
+      ) %>%
+      igraph::simplify(
+        remove.loops = T
+      )
 
     return(graph)
     
@@ -47,22 +51,35 @@ shinyServer(function(input, output, session) {
   
   graph <- readRDS("alz_graph.rds") # Base data import for Alzheimer's Disease query
   
-  output$graph_Query <- renderText({ # Display the query used for the current graph
-    
-    text<- if(input$input_QueryText == ""){
-      
-      EUtilsSummary("Alzheimer's Disease", retmax = 1500, reldate = 30)
-      
-    } else {
-      
-      EUtilsSummary(input$input_QueryText, retmax = 1500, reldate = 30)
-      
-    }
-    
-    print(text)
-    
+  # dateRange <- reactiveVal(30) 
+  # observeEvent(input$input_QueryText, {
+  #   dateRange <- reactiveVal(input$input_DateRange)
+  # })
+  
+  observeEvent(input$settings_button, {
+    toggle(id = "settings_panel", anim = T, animType = "fade", time = .5)
   })
   
+  observeEvent(input$input_QueryText,{
+    output$graph_Query <- renderText({ # Display the query used for the current graph
+
+      text<- if(input$input_QueryText == ""){
+        
+        EUtilsSummary("Alzheimer's Disease", retmax = 1500, reldate = isolate(input$input_DateRange))
+        
+      } else {
+        
+        EUtilsSummary(input$input_QueryText, retmax = 1500, reldate = isolate(input$input_DateRange))
+        
+      }
+      
+      print(text)
+      
+    })
+    
+    
+  })
+
   
   output$graph_Network <- renderVisNetwork({
     
@@ -73,7 +90,7 @@ shinyServer(function(input, output, session) {
       data <- if(input$input_QueryText == ""){ # Display graph based on base data on start up, else utilize user input. 
         graph
       } else {
-        graphData(input$input_QueryText)
+        graphData(input$input_QueryText, isolate(input$input_DateRange))
       }
 
       })
